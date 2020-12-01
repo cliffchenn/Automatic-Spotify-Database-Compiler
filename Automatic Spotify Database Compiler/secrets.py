@@ -1,4 +1,3 @@
-
 spotify_token = "OAuth Token Generated using the Spotify Web API"
 
 spotify_user_id = "Spotify Username"
