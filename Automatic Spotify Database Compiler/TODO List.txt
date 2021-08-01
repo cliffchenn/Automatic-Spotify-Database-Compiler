@@ -1,0 +1,10 @@
+Spotify App Task List: 
+
+MUST 
+- pull data from sql table 
+- pull code from .txt file
+- aesthetics of app 
+
+NICE TO HAVE
+- automatic refresh of OAuth token
+- user input of timezone

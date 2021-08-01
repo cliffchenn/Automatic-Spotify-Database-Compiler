@@ -1,10 +1,11 @@
-import json
-import requests as rq
+from datetime import timedelta
+from mysql.connector import errorcode
 from secrets import spotify_user_id, spotify_token
+from sqlalchemy import create_engine
+
 import pandas as pd
 import mysql.connector
-from mysql.connector import errorcode
-from sqlalchemy import create_engine
+import requests as rq
 
 
 class GetPlayedSong:
@@ -54,7 +55,7 @@ class GetPlayedSong:
         return song_info
 
 def clean_data(clean_df):
-    clean_df["time_played"] = pd.to_datetime(clean_df["time_played"]).dt.round("s") + pd.Timedelta(-8, unit="H")   # PST
+    clean_df["time_played"] = pd.to_datetime(clean_df["time_played"]).dt.tz_convert("US/Pacific").dt.round('s') # set according to users timezone
     clean_df = clean_df.astype({"song": str, "artists": str, "album": str})
     clean_df["artists"] = clean_df["artists"].str.replace("'", "")
 
@@ -109,14 +110,25 @@ class DataFrame(object):
 
         return final_df
 
-
+# re-establish database connection
 class Database:
     def __init__(self):
-        self.conn = mysql.connector.connect(user="root", password="password",
-                                           host="localhost",
-                                           database="songs")
+        # database = schema
+        # driver = '{ODBC Driver 17 for SQL Server}'
+        # server = 'localhost'
+        # database = 'spot'
+        # user = 'root'
+        # password = 'password'
+
+        # con_string = "DRIVER={0};SERVER={1};DATABASE={2};PORT=3306;UID={3};PWD={4}"
+
+        # old 
+        self.conn = mysql.connector.connect(user="root", password="password", host="localhost", database='spot')
         self.cursor = self.conn.cursor(buffered=True)
-        self.engine = create_engine("mysql://root:[password]@localhost:3306/songs", echo=False)
+        try: 
+            self.engine = create_engine('mysql+mysqlconnector://root:password@localhost:3306/spot', echo=False, connect_args={'auth_plugin': 'mysql_native_password'})
+        except: 
+            self.engine = create_engine('mysql+mysqlconnector://root:[password]@localhost:3306/spot', echo=False)
 
     def create_connection(self):
         try:
@@ -132,6 +144,25 @@ class Database:
             else:
                 print(err)
         return conn
+
+    def check_exist(self):
+        check_query = "SELECT * FROM information_schema.tables WHERE table_name = 'spot.songs'"
+        exist = self.cursor.execute(check_query)
+
+        if exist.fetchone()[0] == 1:
+            return True
+        else: 
+            self.cursor.excecute(
+                """
+                CREATE TABLE spot.songs (
+                    song VARCHAR(256),
+                    artists VARCHAR(256),
+                    album VARCHAR (256),
+                    time_played DATETIME
+                    )
+                """
+            )
+            return False 
 
     def check_empty(self):
         check = (
@@ -166,7 +197,7 @@ class Database:
         pd.set_option('display.max_columns', None)
         final_song.columns = ["song", "artists", "album", "time_played"]
 
-        final_song["time_played"] = pd.to_datetime(final_song["time_played"], format= "%Y-%m-%d %H:%M:%S", utc=True)
+        final_song["time_played"] = pd.to_datetime(final_song["time_played"], format= "%Y-%m-%d %H:%M:%S", utc=True) 
         final_song = final_song.astype({"artists": str})
 
         return final_song
@@ -177,38 +208,42 @@ class Database:
 
     def insert_data(self, df):
         conn2 = self.engine.connect()
-        df.to_sql(name="songs", con=conn2, if_exists="append", index=False)
+        # insert_query = "INSERT INTO songs (songs, artists, albums, time_played) VALUES ('{}', '{}', '{}', '{}')".format(df['song'], df['artists'], df['album'], df['time_played'])
+        # self.cursor.execute(insert_query)
+        df.to_sql('songs', self.engine, if_exists='append', schema='spot', index=False)
         conn2.close()
+        # pass
 
 
 if __name__  == "__main__":
-    db = Database()
-    conn = db.create_connection()
-
-    empty = db.check_empty()
+    db = Database() # initialize database class 
+    conn = db.create_connection() # create database connection 
+    exist = db.check_exist() # check if table exists in SQL Server, if not, create table
+    empty = db.check_empty() # check if the table is empty
     print("empty:", empty)
 
     size = 50  # CHANGE SIZE FOR NUMBER OF SONGS TO STORE
-    get_song = GetPlayedSong(size)
-    song_df = pd.DataFrame(get_song.get_song_list(get_song.spotify_request()))
+    get_song = GetPlayedSong(size) # initialize class for retrieving songs from Spotify API 
+    song_df = pd.DataFrame(get_song.get_song_list(get_song.spotify_request())) # get 50 most recent listened to songs
+    song_df = clean_data(song_df) # cleaning data function 
 
-    pd.set_option('display.max_columns', None)
-    song_df = clean_data(song_df)
+    # quality check 
     print(song_df)
 
     if not empty:
-        last_song = pd.DataFrame(db.get_last_song())
+        last_song = pd.DataFrame(db.get_last_song()) # get last song that is played 
         print("THE LAST SONG:\n ", last_song)
 
         data = DataFrame(song_df, last_song)
-        final_df = data.cut_song_df(size)
+        final_df = data.cut_song_df(size) # cut down dataframe uploaded to SQL according to most recent song, avoid duplicates
 
     else:
-        final_df = song_df
-
-    db.close_connection()
+        final_df = song_df # final_df is the dataframe uploaded to SQL 
 
     if not final_df.empty:
         db.insert_data(final_df)
+        pass
     else:
         print("nothing inserted, check error message above.....exiting")
+
+    db.close_connection()

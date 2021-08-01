@@ -1,0 +1,112 @@
+#:kivy 2.0.0
+#:import Factory kivy.factory.Factory
+
+WindowManager: 
+    MainWindow:
+    SecondWindow:
+    ThirdWindow: 
+    FourthWindow:
+
+
+<MainWindow>:
+    # button in middle of page, press start, have animation of bouncing up and down 
+    name: 'main'
+    canvas.before:
+        Color: 
+            rgba: (101/255, 198/255, 187/255, 1)
+        Rectangle: 
+            pos: self.pos
+            size: self.size
+    Label:
+        text: 'R e c s'
+        font_size: self.width / 10
+        color: 1, 1, 1, 1
+        size_hint: (0.6, 0.6)
+        pos_hint: {'center_x': 0.5, 'y': 0.3}
+
+    Button:
+        text: 'start'
+        size_hint: (0.15, 0.1)
+        pos_hint: {'center_x': 0.5, 'y': 0.2}
+        opacity: 1 if self.state == 'normal' else .75
+        # background_color: (183/255, 1, 191/255, 1)
+        on_release: 
+            app.root.current = 'second'
+            root.manager.transition.direction = 'up'
+    
+
+<SecondWindow>:
+    name: 'second'
+    Label: 
+        text: 'Authentification Code'
+        font_size: self.width / 25
+        pos_hint: {'center_x': 0.5, 'center_y': 0.75}
+        color: 1, 1, 1, 1
+
+    TextInput: 
+        id: code
+        size_hint: (0.3, 0.05)
+        pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+        hint_text: 'Enter your Spotify OAuth Code'
+        multiline: False
+
+    Button:
+        text: 'Submit'
+        size_hint: (0.15, 0.10)
+        pos_hint: {'center_x': 0.5, 'center_y': 0.25}
+        on_release: 
+            app.save_code(code.text)
+            # import file_name
+            # run script 
+            app.root.current = 'third'
+            root.manager.transition.direction = 'up'
+
+# loading page 
+<ThirdWindow>:
+    name: 'third'
+    Label: 
+        text: 'Loading, please wait :)'
+        font_size: self.width / 15
+        pos_hint: {'center_x': 0.5, 'center_y': 0.6}
+    Button: 
+        text: 'Press me!'
+        size_hint: (0.15, 0.10)
+        pos_hint: {'center_x': 0.5, 'center_y': 0.4}
+        on_release: 
+            app.buffering(self)
+            app.root.current = 'fourth'
+            root.manager.transition.direction = 'up'
+
+<FourthWindow>:
+    name: 'fourth'
+    GridLayout: 
+        cols: 2
+        Label: 
+            text: 'Your Recently Listened to 50 Songs:'
+            pos_hint: {'center_x': 0.5, 'center_y': 0.8}
+        
+# <Widgets>:
+#     Button: 
+#         text: 'Press'
+#         on_release: 
+#             root.popUp_btn()
+
+# <PopUp>:
+#     name: 'pop'
+#     FloatLayout: 
+#         Label:
+#             text: 'Authorization'
+#             size_hint: 0.6, 0.2
+#             pos_hint: {'center_x': 0.5, 'center_y': 0.75}
+#         Button: 
+#             text: 'Submit'
+#             size_hint: 0.3, 0.15
+#             pos_hint: {'center_x': 0.5, 'center_y': 0.35}
+
+
+# items that will go here: 
+    # main landing: button, logo
+        # intermediate page: credentials
+    # second page: results (list of songs), button for recommendation generation 
+    # third page: waiting page 
+    # fourth page: recommendations playlist

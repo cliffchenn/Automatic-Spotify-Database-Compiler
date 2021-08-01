@@ -1,6 +1,10 @@
-spotify_token = "OAuth Token Generated using the Spotify Web API"
+from os import join, abspath, curdir
 
-spotify_user_id = "Spotify Username"
+code_file = open(join(abspath(curdir), 'auth_code.txt'), 'r')
+
+spotify_token = code_file.read()
+
+spotify_user_id = "sinistersandwich"
 
 # Recent Song Documentation: https://developer.spotify.com/documentation/web-api/reference/player/get-recently-played/
 
